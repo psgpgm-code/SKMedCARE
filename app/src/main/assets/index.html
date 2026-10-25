@@ -203,4 +203,153 @@ function checkDueNotice(){let key='skmedcare_last_notice_'+today();if(localStora
 load();renderAll();syncNativeNotifications();setTimeout(checkDueNotice,1200);
 if('serviceWorker'in navigator && location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script>
+  <!-- SKMedCARE Firebase Cloud Sync integration.
+     Paste this entire block immediately BEFORE the existing </body> tag in index.html.
+     It does not replace existing app code or the Android reminder bridge. -->
+<div id="skmc-cloud-panel" style="max-width:850px;margin:14px auto;padding:14px;font-family:system-ui,sans-serif;color:#17342d">
+  <section style="background:#fff;border:1px solid #dce8e2;border-radius:16px;padding:15px">
+    <h2 style="margin:0 0 8px">🔐 SKMedCARE Cloud Login / Sync</h2>
+    <p style="font-size:13px;color:#63756f">Login செய்து உங்கள் Customer, Medicine Plan, Reminder தரவை உங்கள் தனிப்பட்ட Firebase account-ல் backup செய்யலாம். முதலில் Firebase Console → Authentication → Sign-in method-ல் Email/Password enable செய்யவும்.</p>
+    <label style="display:block;font-size:13px;margin:8px 0 4px">Email</label>
+    <input id="skmc-cloud-email" type="email" autocomplete="username" style="width:100%;padding:11px;border:1px solid #cbdad2;border-radius:10px;box-sizing:border-box">
+    <label style="display:block;font-size:13px;margin:8px 0 4px">Password (குறைந்தது 6 எழுத்துகள்)</label>
+    <input id="skmc-cloud-password" type="password" autocomplete="current-password" style="width:100%;padding:11px;border:1px solid #cbdad2;border-radius:10px;box-sizing:border-box">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+      <button type="button" id="skmc-cloud-login">Login</button>
+      <button type="button" id="skmc-cloud-signup">Create account</button>
+      <button type="button" id="skmc-cloud-sync">Sync now</button>
+      <button type="button" id="skmc-cloud-logout">Logout</button>
+    </div>
+    <p id="skmc-cloud-status" role="status" style="font-size:13px;margin:10px 0 0">Firebase தொடங்குகிறது…</p>
+  </section>
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+(function(){
+'use strict';
+const CONFIG = {
+  apiKey: "AIzaSyCeY06TLbnIGl8RSs6nDuQoi5Z9gibs590",
+  authDomain: "skmedcare-c1791.firebaseapp.com",
+  databaseURL: "https://skmedcare-c1791-default-rtdb.firebaseio.com",
+  projectId: "skmedcare-c1791",
+  storageBucket: "skmedcare-c1791.firebasestorage.app",
+  messagingSenderId: "386450384115",
+  appId: "1:386450384115:android:654e74e6ae2f3122be0386"
+};
+const KEY='skmedcare_companion_v1';
+const $=id=>document.getElementById(id);
+let ready=false, user=null, busy=false, timer=null;
+function status(s){const e=$('skmc-cloud-status');if(e)e.textContent=s}
+function errorText(e){
+ const c=e&&e.code;
+ const map={
+ 'auth/operation-not-allowed':'Firebase Console → Authentication → Sign-in method-ல் Email/Password enable செய்யவும்.',
+ 'auth/invalid-credential':'Email அல்லது password தவறு.',
+ 'auth/email-already-in-use':'இந்த email-க்கு account உள்ளது. Create account பதிலாக Login செய்யவும்.',
+ 'auth/weak-password':'குறைந்தது 6 எழுத்துகள் கொண்ட password பயன்படுத்தவும்.',
+ 'auth/network-request-failed':'இணைய இணைப்பைச் சரிபார்க்கவும்.',
+ 'PERMISSION_DENIED':'Database Rules அனுமதி மறுக்கிறது. பாதுகாப்பான rules அமைக்கவும்.'
+ };
+ return map[c] || (e&&e.message) || 'தெரியாத பிழை';
+}
+function getDb(){
+ try { const x=JSON.parse(localStorage.getItem(KEY)||'{}'); return {
+  customers:Array.isArray(x.customers)?x.customers:[],
+  plans:Array.isArray(x.plans)?x.plans:[],
+  logs:Array.isArray(x.logs)?x.logs:[]
+ }; } catch(_){ return {customers:[],plans:[],logs:[]}; }
+}
+function setDb(d){
+ localStorage.setItem(KEY,JSON.stringify(d));
+ // Preserve existing app rendering and native reminder notification behavior.
+ if(typeof window.renderAll==='function')window.renderAll();
+ if(typeof window.syncNativeNotifications==='function')window.syncNativeNotifications();
+}
+function mergeById(local,remote){
+ const m=new Map();
+ (Array.isArray(remote)?remote:[]).forEach(x=>{if(x&&x.id)m.set(String(x.id),x)});
+ (Array.isArray(local)?local:[]).forEach(x=>{if(x&&x.id)m.set(String(x.id),{...(m.get(String(x.id))||{}),...x})});
+ return Array.from(m.values());
+}
+async function sync(){
+ if(!ready||!user){status('Cloud sync செய்ய முதலில் Login செய்யவும்.');return}
+ if(busy)return;
+ busy=true;
+ try{
+  const ref=firebase.database().ref('users/'+user.uid+'/companion');
+  const snap=await ref.once('value');
+  const remote=snap.val();
+  let d=getDb();
+  if(remote && typeof remote==='object'){
+   d={customers:mergeById(d.customers,remote.customers),
+      plans:mergeById(d.plans,remote.plans),
+      logs:mergeById(d.logs,remote.logs)};
+   setDb(d);
+  }
+  await ref.set({customers:d.customers,plans:d.plans,logs:d.logs,
+    schemaVersion:1,syncedAt:new Date().toISOString()});
+  status('Cloud sync வெற்றி • '+d.customers.length+' Customers, '+d.plans.length+' Medicine Plans');
+ }catch(e){status('Sync தோல்வி: '+errorText(e))}
+ finally{busy=false}
+}
+function scheduleSave(){
+ if(!ready||!user)return;
+ clearTimeout(timer);
+ timer=setTimeout(async()=>{
+  if(busy){scheduleSave();return}
+  busy=true;
+  try{
+   const d=getDb();
+   await firebase.database().ref('users/'+user.uid+'/companion').set({
+    customers:d.customers,plans:d.plans,logs:d.logs,
+    schemaVersion:1,syncedAt:new Date().toISOString()
+   });
+   status('Cloud-ல் சேமிக்கப்பட்டது');
+  }catch(e){status('Cloud save தோல்வி: '+errorText(e))}
+  finally{busy=false}
+ },1200);
+}
+async function login(){
+ const email=$('skmc-cloud-email').value.trim(), password=$('skmc-cloud-password').value;
+ if(!email||!password){status('Email மற்றும் password உள்ளிடவும்.');return}
+ try{status('Login செய்கிறது…');await firebase.auth().signInWithEmailAndPassword(email,password)}
+ catch(e){status('Login தோல்வி: '+errorText(e))}
+}
+async function signup(){
+ const email=$('skmc-cloud-email').value.trim(), password=$('skmc-cloud-password').value;
+ if(!email||password.length<6){status('சரியான email மற்றும் குறைந்தது 6 எழுத்து password உள்ளிடவும்.');return}
+ try{status('Account உருவாக்குகிறது…');await firebase.auth().createUserWithEmailAndPassword(email,password)}
+ catch(e){status('Account உருவாக்க முடியவில்லை: '+errorText(e))}
+}
+async function logout(){try{await firebase.auth().signOut();status('Logout முடிந்தது. Local data நீக்கப்படவில்லை.')}catch(e){status(errorText(e))}}
+function init(){
+ if(!window.firebase){status('Firebase library ஏற்றப்படவில்லை. Internet connection சரிபார்க்கவும்.');return}
+ try{
+  if(!firebase.apps.length)firebase.initializeApp(CONFIG);
+  ready=true;
+  firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+  firebase.auth().onAuthStateChanged(async u=>{
+   user=u||null;
+   if(!user){status('Login செய்யவில்லை. இந்த சாதனத்தின் Local data பாதுகாப்பாக உள்ளது.');return}
+   status('Login வெற்றி. Cloud data sync செய்கிறது…');await sync();
+  });
+  $('skmc-cloud-login').addEventListener('click',login);
+  $('skmc-cloud-signup').addEventListener('click',signup);
+  $('skmc-cloud-sync').addEventListener('click',sync);
+  $('skmc-cloud-logout').addEventListener('click',logout);
+  // Hook existing save() without replacing its localStorage/render/notification behavior.
+  if(typeof window.save==='function'){
+   const originalSave=window.save;
+   window.save=function(){const result=originalSave.apply(this,arguments);scheduleSave();return result};
+  }else{
+   status('Firebase தயாராக உள்ளது; இந்த app-இல் save() function கண்டறியப்படவில்லை.');
+  }
+ }catch(e){status('Firebase தொடங்கவில்லை: '+errorText(e))}
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
+  
 </body></html>
