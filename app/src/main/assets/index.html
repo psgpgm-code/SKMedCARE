@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="ta">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b6b53">
+<meta name="description" content="SKMedCARE customer medicine and refill reminder companion app">
+<link rel="manifest" href="manifest.webmanifest">
+<title>SKMedCARE – Customer Reminder</title>
+<style>
+:root{--green:#0b6b53;--green2:#13866a;--bg:#f3f7f5;--card:#fff;--text:#17342d;--muted:#63756f;--line:#dce8e2;--red:#b42318;--amber:#8a5a00}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans Tamil",sans-serif}
+header{background:linear-gradient(135deg,var(--green),var(--green2));color:white;padding:20px 16px 18px;border-radius:0 0 22px 22px}
+header h1{font-size:22px;margin:0 0 5px}header p{margin:0;font-size:13px;opacity:.92}
+main{max-width:850px;margin:auto;padding:14px}
+.tabs{display:flex;gap:8px;overflow:auto;margin:0 0 14px}.tab{border:1px solid var(--line);border-radius:12px;background:white;padding:10px 13px;white-space:nowrap;color:var(--text);font-weight:650}.tab.active{background:var(--green);color:white;border-color:var(--green)}
+.panel{display:none}.panel.active{display:block}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px;margin-bottom:13px;box-shadow:0 3px 12px #17342d08}
+h2{font-size:18px;margin:0 0 12px}h3{font-size:16px;margin:0 0 8px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.field{display:flex;flex-direction:column;gap:5px}.full{grid-column:1/-1}label{font-size:13px;font-weight:650;color:#38584e}input,select,textarea{width:100%;padding:11px;border:1px solid #cbdad2;border-radius:10px;background:white;color:var(--text);font:inherit;font-size:14px}textarea{min-height:70px;resize:vertical}.checkrow{display:flex;flex-wrap:wrap;gap:12px}.checkrow label{display:flex;align-items:center;gap:5px;font-weight:500}.checkrow input{width:auto}
+button,.btn{border:0;border-radius:11px;background:var(--green);color:white;padding:11px 14px;font-weight:700;font-size:14px;cursor:pointer;text-decoration:none;display:inline-flex;justify-content:center;align-items:center;gap:6px}.secondary{background:#e7f2ed;color:var(--green)}.danger{background:#fff0ef;color:var(--red)}.rowbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.muted{color:var(--muted);font-size:13px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{background:#e8f4ee;border-radius:13px;padding:12px}.stat b{font-size:23px;display:block;color:var(--green)}.stat span{font-size:12px}
+.listitem{border:1px solid var(--line);border-radius:13px;padding:12px;margin-top:9px}.listhead{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.badge{font-size:11px;font-weight:750;border-radius:20px;padding:4px 8px;background:#e8f4ee;color:var(--green);white-space:nowrap}.badge.due{background:#fff1d6;color:var(--amber)}.badge.overdue{background:#ffebe9;color:var(--red)}.listitem p{margin:6px 0;font-size:13px}.empty{padding:18px;text-align:center;color:var(--muted)}.notice{background:#fff8e6;border:1px solid #f1dba5;border-radius:12px;padding:12px;font-size:13px;line-height:1.5;margin-bottom:12px}.small{font-size:12px}
+
+.prescription{padding:15px 14px;border-left:4px solid var(--green)}
+.prescription-body{margin-top:12px;border-top:1px dashed var(--line)}
+.prescription-line{padding:12px 0;border-bottom:1px solid var(--line)}
+.prescription-line:last-child{border-bottom:0}
+.prescription-main{display:flex;flex-direction:column;gap:5px}
+.rx-meta{font-size:14px;color:var(--muted)}
+.rx-time{font-size:14px;font-weight:650}
+.rx-date{font-size:12px;color:var(--green);font-weight:700}
+.rx-actions{margin-top:8px}
+@media(max-width:520px){.grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(3,1fr)}header h1{font-size:20px}.card{padding:12px}}
+</style>
+</head>
+<body>
+<header><h1>💊 SKMedCARE</h1><p>Customer Medicine & Refill Reminder • Sri Krishna Medicals</p></header>
+<main>
+<div class="notice"><b>தனியான Companion App.</b> இது SKMedKART Billing / Stock தரவுகளை மாற்றாது. முதலில் Admin app-இன் JSON Backup-ஐ இங்கே Import செய்யலாம். இந்த prototype-இல் WhatsApp செய்தி தயாரித்து திறக்கப்படும்; தானாக அனுப்பப்படாது.</div>
+<div class="tabs">
+<button class="tab active" data-tab="home">Dashboard</button>
+<button class="tab" data-tab="customers">Customers</button>
+<button class="tab" data-tab="medicine">Medicine Plan</button>
+<button class="tab" data-tab="reminders">Reminders</button>
+<button class="tab" data-tab="backup">Backup / Import</button>
+</div>
+<section id="home" class="panel active">
+<div class="stats">
+<div class="stat"><b id="countCustomers">0</b><span>Customers</span></div>
+<div class="stat"><b id="countPlans">0</b><span>Medicine plans</span></div>
+<div class="stat"><b id="countDue">0</b><span>Due reminders</span></div>
+</div>
+<div class="card" style="margin-top:13px"><h2>இன்றைய நினைவூட்டல்கள்</h2><div id="homeDue"></div></div>
+<div class="card"><h2>விரைவு செயல்கள்</h2><div class="rowbtns"><button onclick="showTab('customers')">+ Customer</button><button onclick="showTab('medicine')">+ Medicine Plan</button><button class="secondary" onclick="showTab('backup')">Import Admin Backup</button></div></div>
+</section>
+<section id="customers" class="panel">
+<div class="card"><h2>Customer பதிவு</h2>
+<form id="customerForm"><input type="hidden" id="customerId">
+<div class="grid">
+<div class="field"><label for="cName">வாடிக்கையாளர் பெயர் *</label><input id="cName" required autocomplete="name"></div>
+<div class="field"><label for="cMobile">மொபைல் எண் *</label><input id="cMobile" required inputmode="tel" autocomplete="tel"></div>
+<div class="field full"><label for="cNotes">குறிப்புகள்</label><textarea id="cNotes" placeholder="விருப்பமான குறிப்புகள்"></textarea></div>
+</div><div class="rowbtns"><button type="submit">Save Customer</button><button type="button" class="secondary" onclick="resetCustomerForm()">Clear</button></div>
+</form></div>
+<div class="card"><h2>Customer பட்டியல்</h2><input id="customerSearch" placeholder="பெயர் / மொபைல் தேடுக" oninput="renderCustomers()"><div id="customerList"></div></div>
+</section>
+<section id="medicine" class="panel">
+<div class="card"><h2>மருந்து & சாப்பிடும் நேரம்</h2>
+<p class="muted">மருந்தின் அளவு, உணவுக்கு முன்/பின் மற்றும் நேரங்களை மருத்துவர் பரிந்துரை / prescription படி மட்டும் பதிவு செய்யவும்.</p>
+<form id="planForm"><input type="hidden" id="planId">
+<div class="grid">
+<div class="field full"><label for="pCustomer">Customer *</label><select id="pCustomer" required></select></div>
+<div class="field full"><label for="pMedicine">Medicine name *</label><input id="pMedicine" required placeholder="மருந்தின் பெயர்"></div>
+<div class="field"><label for="pDose">அளவு / Instructions</label><input id="pDose" placeholder="Prescription படி"></div>
+<div class="field"><label for="pFood">உணவுடன் தொடர்பு</label><select id="pFood"><option value="">தேர்வு செய்யவும்</option><option>உணவுக்கு முன்</option><option>உணவுடன்</option><option>உணவுக்குப் பின்</option><option>மருத்துவர் கூறியபடி</option></select></div>
+<div class="field full"><label>மருந்து நேரம் (Prescription படி தேர்வு செய்யவும்)</label><div class="checkrow">
+<label><input type="checkbox" id="tMorning"> காலை</label><label><input type="checkbox" id="tAfternoon"> மதியம்</label><label><input type="checkbox" id="tEvening"> மாலை</label><label><input type="checkbox" id="tNight"> இரவு</label>
+</div><p class="muted">தேர்வு செய்த நேரங்களுக்கான Notification time-ஐ prescription-க்கு ஏற்ப அமைக்கவும்.</p></div>
+<div class="field"><label for="tmMorning">காலை Notification நேரம்</label><input type="time" id="tmMorning" value="08:00"></div>
+<div class="field"><label for="tmAfternoon">மதிய Notification நேரம்</label><input type="time" id="tmAfternoon" value="13:00"></div>
+<div class="field"><label for="tmEvening">மாலை Notification நேரம்</label><input type="time" id="tmEvening" value="18:00"></div>
+<div class="field"><label for="tmNight">இரவு Notification நேரம்</label><input type="time" id="tmNight" value="21:00"></div>
+<div class="field"><label for="pRefillTime">Refill reminder notification நேரம்</label><input type="time" id="pRefillTime" value="09:00"></div>
+<div class="field"><label for="pStart">தொடங்கிய தேதி</label><input id="pStart" type="date"></div>
+<div class="field"><label for="pRepeat">Refill reminder (நாட்கள்)</label><input id="pRepeat" type="number" min="1" value="30" required></div>
+<div class="field"><label for="pNext">அடுத்த reminder தேதி</label><input id="pNext" type="date" required></div>
+<div class="field"><label for="pQty">வாங்கிய அளவு / விவரம்</label><input id="pQty" placeholder="உதா: 1 strip"></div>
+<div class="field"><label for="pLocation">Product Location (Rack / Shelf)</label><input id="pLocation" placeholder="உதா: Rack 2, Shelf B"></div>
+<div class="field full"><label for="pNotes">குறிப்புகள்</label><textarea id="pNotes"></textarea></div>
+</div><div class="rowbtns"><button type="button" class="secondary" onclick="addAnotherMedicine()">＋ இந்த Customer-க்கு இன்னொரு மருந்து</button><button type="submit">Save Medicine Plan</button><button type="button" class="secondary" onclick="resetPlanForm()">Clear</button></div><p class="muted small">ஒரு மருந்தை நிரப்பியதும் “இன்னொரு மருந்து” அழுத்தவும். Customer தேர்வு மாறாமல் இருக்கும்; ஒவ்வொரு மருந்துக்கும் நேரம்/உணவு விவரங்களை தனித்தனியாக பதிவு செய்யலாம்.</p>
+</form></div>
+<div class="card"><h2>Medicine Plans</h2><input id="planSearch" placeholder="Customer / medicine தேடுக" oninput="renderPlans()"><div id="planList"></div></div>
+</section>
+<section id="reminders" class="panel">
+<div class="card"><h2>Refill Reminder பட்டியல்</h2><p class="muted">Due ஆன reminder-ஐ WhatsApp-ல் திறந்து செய்தியை அனுப்பலாம். WhatsApp திறப்பது மட்டும் தானியங்கி அனுப்புதல் அல்ல.</p><div class="rowbtns"><button onclick="renderReminders()">Refresh</button><button class="secondary" onclick="requestNotificationPermission()">Enable browser notifications</button></div><div id="reminderList"></div></div>
+</section>
+<section id="backup" class="panel">
+<div class="card"><h2>Admin App Backup Import</h2>
+<p>SKMedKART Admin app-இல் இருந்து எடுத்த JSON Backup-ஐத் தேர்வு செய்யவும். Customer பெயர்/மொபைல், bills-ல் உள்ள மருந்துப் பெயர்கள், reminders ஆகியவற்றை மட்டும் இந்த தனி app-க்கு நகலெடுக்கும். Original backup / Admin app மாற்றப்படாது.</p>
+<input type="file" id="backupFile" accept=".json,application/json">
+<div class="rowbtns"><button onclick="importAdminBackup()">Import JSON Backup</button></div><div id="importStatus" class="muted" style="margin-top:10px"></div></div>
+<div class="card"><h2>Companion App Data Backup</h2><p class="muted">இந்த ஆப்பில் சேமித்த தரவை JSON file ஆக export செய்து பாதுகாப்பாக வைத்துக்கொள்ளவும்.</p><div class="rowbtns"><button onclick="exportData()">Export Backup</button><label class="btn secondary" for="restoreFile">Restore Companion Backup</label><input id="restoreFile" type="file" accept=".json,application/json" hidden onchange="restoreData(event)"></div><div class="rowbtns"><button class="danger" onclick="clearAllData()">Delete all Companion data</button></div></div>
+</section>
+<p class="muted small">Prototype • Data is stored on this device/browser. Export backups regularly. Do not store unnecessary sensitive medical information.</p>
+</main>
+<script>
+const DBKEY='skmedcare_companion_v1';
+let db={customers:[],plans:[],logs:[]};
+const $=id=>document.getElementById(id);
+const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
+const plusDays=(date,days)=>{let d=new Date((date||today())+'T12:00:00');d.setDate(d.getDate()+Number(days||30));return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const digits=s=>String(s||'').replace(/\D/g,'');
+function load(){try{let x=JSON.parse(localStorage.getItem(DBKEY)||'{}');db={customers:Array.isArray(x.customers)?x.customers:[],plans:Array.isArray(x.plans)?x.plans:[],logs:Array.isArray(x.logs)?x.logs:[]}}catch(e){db={customers:[],plans:[],logs:[]}}}
+function save(){localStorage.setItem(DBKEY,JSON.stringify(db));renderAll();syncNativeNotifications()}
+
+function syncNativeNotifications(){
+  try{
+    if(!window.AndroidReminderBridge || typeof window.AndroidReminderBridge.syncReminders!=='function')return;
+    const payload=db.plans.map(p=>{
+      const c=getPlanCustomer(p);
+      return {id:p.id,customerName:c.name,mobile:c.mobile,medicine:p.medicine,nextDate:p.nextDate||'',repeatDays:Number(p.repeatDays)||30,
+        times:p.times||{},notifyTimes:p.notifyTimes||{morning:'08:00',afternoon:'13:00',evening:'18:00',night:'21:00',refill:'09:00'}};
+    });
+    window.AndroidReminderBridge.syncReminders(JSON.stringify(payload));
+  }catch(e){console.warn('Native reminder sync unavailable',e)}
+}
+
+function uid(){return 'sc_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8)}
+function showTab(id){document.querySelectorAll('.panel').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===id));if(id==='medicine')fillCustomerSelect();if(id==='reminders')renderReminders();window.scrollTo({top:0,behavior:'smooth'})}
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
+function customerById(id){return db.customers.find(c=>c.id===id)}
+function getPlanCustomer(p){return customerById(p.customerId)||{name:p.customerName||'Unknown',mobile:p.mobile||''}}
+function resetCustomerForm(){$('customerForm').reset();$('customerId').value=''}
+$('customerForm').addEventListener('submit',e=>{e.preventDefault();let id=$('customerId').value;let c={id:id||uid(),name:$('cName').value.trim(),mobile:$('cMobile').value.trim(),notes:$('cNotes').value.trim(),updatedAt:new Date().toISOString()};if(!c.name||!c.mobile)return;if(db.customers.some(x=>x.id!==id&&digits(x.mobile)===digits(c.mobile))){if(!confirm('இந்த மொபைல் எண் ஏற்கெனவே உள்ளது. இருந்தாலும் சேமிக்கவா?'))return}if(id)db.customers=db.customers.map(x=>x.id===id?c:x);else db.customers.push(c);resetCustomerForm();save()});
+function editCustomer(id){let c=customerById(id);if(!c)return;$('customerId').value=c.id;$('cName').value=c.name;$('cMobile').value=c.mobile;$('cNotes').value=c.notes||'';showTab('customers');$('cName').focus()}
+function deleteCustomer(id){if(!confirm('இந்த customer-ஐ நீக்கவா? அவருடைய medicine plans-யும் நீக்கப்படும்.'))return;db.customers=db.customers.filter(c=>c.id!==id);db.plans=db.plans.filter(p=>p.customerId!==id);save()}
+function renderCustomers(){let q=($('customerSearch')?.value||'').toLowerCase();let list=db.customers.filter(c=>(c.name+' '+c.mobile).toLowerCase().includes(q));$('customerList').innerHTML=list.length?list.map(c=>`<div class="listitem"><div class="listhead"><div><b>${esc(c.name)}</b><p>${esc(c.mobile)}</p></div><span class="badge">${db.plans.filter(p=>p.customerId===c.id).length} plans</span></div>${c.notes?`<p>${esc(c.notes)}</p>`:''}<div class="rowbtns"><button class="secondary" onclick="editCustomer('${c.id}')">Edit</button><button class="secondary" onclick="newPlanFor('${c.id}')">+ Medicine</button><a class="btn secondary" href="tel:${esc(digits(c.mobile))}">Call</a><button class="danger" onclick="deleteCustomer('${c.id}')">Delete</button></div></div>`).join(''):'<div class="empty">Customer இல்லை. முதலில் பதிவு செய்யவும் அல்லது backup import செய்யவும்.</div>'}
+function fillCustomerSelect(selected){let s=$('pCustomer');if(!s)return;s.innerHTML='<option value="">Customer தேர்வு செய்யவும்</option>'+db.customers.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(c=>`<option value="${esc(c.id)}">${esc(c.name)} — ${esc(c.mobile)}</option>`).join('');if(selected)s.value=selected}
+function resetPlanForm(){$('planForm').reset();$('planId').value='';$('pStart').value=today();$('pRepeat').value=30;$('pNext').value=plusDays(today(),30);fillCustomerSelect()}
+function newPlanFor(id){resetPlanForm();fillCustomerSelect(id);showTab('medicine');$('pCustomer').value=id;$('pMedicine').focus()}
+$('pStart').value=today();$('pNext').value=plusDays(today(),30);
+$('pStart').addEventListener('change',()=>{if(!$('planId').value)$('pNext').value=plusDays($('pStart').value,$('pRepeat').value||30)});
+$('pRepeat').addEventListener('change',()=>{if(!$('planId').value)$('pNext').value=plusDays($('pStart').value||today(),$('pRepeat').value||30)});
+function collectCurrentPlan(idOverride){
+ let c=customerById($('pCustomer').value); if(!c){alert('முதலில் Customer தேர்வு செய்யவும்.');return null}
+ let medicine=$('pMedicine').value.trim(); if(!medicine){alert('மருந்தின் பெயரை உள்ளிடவும்.');$('pMedicine').focus();return null}
+ return {id:idOverride||uid(),customerId:c.id,customerName:c.name,mobile:c.mobile,medicine,dose:$('pDose').value.trim(),food:$('pFood').value,times:{morning:$('tMorning').checked,afternoon:$('tAfternoon').checked,evening:$('tEvening').checked,night:$('tNight').checked},notifyTimes:{morning:$('tmMorning').value||'08:00',afternoon:$('tmAfternoon').value||'13:00',evening:$('tmEvening').value||'18:00',night:$('tmNight').value||'21:00',refill:$('pRefillTime').value||'09:00'},startDate:$('pStart').value||today(),repeatDays:Math.max(1,Number($('pRepeat').value)||30),nextDate:$('pNext').value||plusDays(today(),30),quantity:$('pQty').value.trim(),location:$('pLocation').value.trim(),notes:$('pNotes').value.trim(),updatedAt:new Date().toISOString()};
+}
+function clearMedicineFieldsKeepCustomer(){ $('pMedicine').value='';$('pDose').value='';$('pFood').value='';$('tMorning').checked=false;$('tAfternoon').checked=false;$('tEvening').checked=false;$('tNight').checked=false;$('pQty').value='';$('pNotes').value='';$('pMedicine').focus(); }
+function addAnotherMedicine(){
+ if($('planId').value){alert('ஏற்கெனவே உள்ள மருந்தை Edit செய்யும்போது “இன்னொரு மருந்து” பயன்படுத்த முடியாது. முதலில் Clear அழுத்தி புதிய பதிவு தொடங்கவும்.');return}
+ let p=collectCurrentPlan();if(!p)return;db.plans.push(p);save();clearMedicineFieldsKeepCustomer();
+ alert('மருந்து சேமிக்கப்பட்டது. அதே Customer-க்கு அடுத்த மருந்தின் விவரங்களை நிரப்பவும்.');
+}
+$('planForm').addEventListener('submit',e=>{e.preventDefault();let id=$('planId').value,c=customerById($('pCustomer').value);if(!c){alert('முதலில் Customer தேர்வு செய்யவும்.');return}let p={id:id||uid(),customerId:c.id,customerName:c.name,mobile:c.mobile,medicine:$('pMedicine').value.trim(),dose:$('pDose').value.trim(),food:$('pFood').value,times:{morning:$('tMorning').checked,afternoon:$('tAfternoon').checked,evening:$('tEvening').checked,night:$('tNight').checked},notifyTimes:{morning:$('tmMorning').value||'08:00',afternoon:$('tmAfternoon').value||'13:00',evening:$('tmEvening').value||'18:00',night:$('tmNight').value||'21:00',refill:$('pRefillTime').value||'09:00'},startDate:$('pStart').value||today(),repeatDays:Math.max(1,Number($('pRepeat').value)||30),nextDate:$('pNext').value||plusDays(today(),30),quantity:$('pQty').value.trim(),location:$('pLocation').value.trim(),notes:$('pNotes').value.trim(),updatedAt:new Date().toISOString()};if(id)db.plans=db.plans.map(x=>x.id===id?p:x);else db.plans.push(p);$('planForm').reset();$('planId').value='';$('pStart').value=today();$('pRepeat').value=30;$('pNext').value=plusDays(today(),30);save()});
+function editPlan(id){let p=db.plans.find(x=>x.id===id);if(!p)return;fillCustomerSelect(p.customerId);$('planId').value=p.id;$('pCustomer').value=p.customerId;$('pMedicine').value=p.medicine;$('pDose').value=p.dose||'';$('pFood').value=p.food||'';$('tMorning').checked=!!p.times?.morning;$('tAfternoon').checked=!!p.times?.afternoon;$('tEvening').checked=!!p.times?.evening;$('tNight').checked=!!p.times?.night;$('tmMorning').value=p.notifyTimes?.morning||'08:00';$('tmAfternoon').value=p.notifyTimes?.afternoon||'13:00';$('tmEvening').value=p.notifyTimes?.evening||'18:00';$('tmNight').value=p.notifyTimes?.night||'21:00';$('pRefillTime').value=p.notifyTimes?.refill||'09:00';$('pStart').value=p.startDate||today();$('pRepeat').value=p.repeatDays||30;$('pNext').value=p.nextDate||plusDays(today(),30);$('pQty').value=p.quantity||'';$('pLocation').value=p.location||'';$('pNotes').value=p.notes||'';showTab('medicine');$('pMedicine').focus()}
+function deletePlan(id){if(confirm('இந்த medicine plan-ஐ நீக்கவா?')){db.plans=db.plans.filter(p=>p.id!==id);save()}}
+function timeText(p){let a=[];if(p.times?.morning)a.push('காலை');if(p.times?.afternoon)a.push('மதியம்');if(p.times?.evening)a.push('மாலை');if(p.times?.night)a.push('இரவு');return a.join(', ')||'நேரம் பதிவு செய்யவில்லை'}
+function renderPlans(){
+let q=($('planSearch')?.value||'').toLowerCase();
+let list=db.plans.filter(p=>(getPlanCustomer(p).name+' '+getPlanCustomer(p).mobile+' '+p.medicine).toLowerCase().includes(q));
+let groups=new Map();
+list.forEach(p=>{let c=getPlanCustomer(p),key=p.customerId||digits(c.mobile)||c.name;if(!groups.has(key))groups.set(key,{customer:c,plans:[]});groups.get(key).plans.push(p)});
+$('planList').innerHTML=groups.size?[...groups.entries()].map(([key,g])=>{
+let c=g.customer;
+return `<div class="listitem prescription"><div class="listhead"><div><h3 style="margin:0 0 4px">${esc(c.name)}</h3><p style="margin:0">${esc(c.mobile)}</p></div><span class="badge">${g.plans.length} மருந்துகள்</span></div><div class="prescription-body">${g.plans.map((p,i)=>`<div class="prescription-line"><div class="prescription-main"><b>${i+1}) ${esc(p.medicine)}</b><span class="rx-meta">${esc(p.dose||'அளவு குறிப்பிடவில்லை')}${p.food?' • '+esc(p.food):''}</span><span class="rx-time">நேரம்: ${esc(timeText(p))}</span>${p.quantity?`<span class="rx-meta">வாங்கிய அளவு: ${esc(p.quantity)}</span>`:''}${p.location?`<span class="rx-meta">இடம்: ${esc(p.location)}</span>`:''}${p.notes?`<span class="rx-meta">குறிப்பு: ${esc(p.notes)}</span>`:''}<span class="rx-date">Refill: ${esc(p.nextDate||'தேதி இல்லை')} • ${esc(p.repeatDays||30)} நாட்கள்</span></div><div class="rowbtns rx-actions"><button class="secondary" onclick="editPlan('${p.id}')">Edit</button><button onclick="markRefilled('${p.id}')">Refilled</button><button class="danger" onclick="deletePlan('${p.id}')">Delete</button></div></div>`).join('')}</div></div>`
+}).join(''):'<div class="empty">Medicine plans இல்லை.</div>';
+}
+function statusFor(p){let d=p.nextDate||'';if(d<today())return ['Overdue','overdue'];if(d===today())return ['Today','due'];return ['Upcoming','']}
+function waLink(p){let c=getPlanCustomer(p),n=digits(c.mobile);if(n.length===10)n='91'+n;let msg=`வணக்கம் ${c.name}, Sri Krishna Medicals-இலிருந்து நினைவூட்டல். நீங்கள் பதிவு செய்த ${p.medicine} மருந்தை மீண்டும் வாங்க வேண்டிய தேதி ${p.nextDate||''}. தேவையெனில் எங்களைத் தொடர்புகொள்ளவும். மருத்துவர் பரிந்துரைப்படி மருந்தைப் பயன்படுத்தவும்.`;return `https://wa.me/${n}?text=${encodeURIComponent(msg)}`}
+function renderReminders(){
+let groups=new Map();
+db.plans.forEach(p=>{
+  let c=getPlanCustomer(p),key=p.customerId||digits(c.mobile)||c.name;
+  if(!groups.has(key))groups.set(key,{customer:c,plans:[]});
+  groups.get(key).plans.push(p);
+});
+let all=[...groups.values()].map(g=>{
+  g.plans.sort((a,b)=>(a.nextDate||'').localeCompare(b.nextDate||''));
+  let due=g.plans.filter(p=>(p.nextDate||'')<=today());
+  let next=g.plans.map(p=>p.nextDate).filter(Boolean).sort()[0]||'';
+  return {...g,due,next};
+}).sort((a,b)=>(a.next||'').localeCompare(b.next||''));
+$('reminderList').innerHTML=all.length?all.map(g=>{
+  let c=g.customer;
+  let status=g.due.length?`${g.due.length} மருந்து(கள்) நினைவூட்டல் நிலுவை`:`அடுத்த தேதி: ${g.next||'பதிவு இல்லை'}`;
+  let meds=g.plans.map((p,i)=>`<div class="prescription-line"><b>${i+1}) ${esc(p.medicine)}</b><div class="rx-meta">மருந்து நேரம்: ${esc(timeText(p))}${p.food?' • '+esc(p.food):''}</div><div class="rx-date">Refill: ${esc(p.nextDate||'தேதி இல்லை')}</div></div>`).join('');
+  let msg=`வணக்கம் ${c.name}, Sri Krishna Medicals-இலிருந்து மருந்து நினைவூட்டல்.\n${g.plans.map((p,i)=>`${i+1}) ${p.medicine} — நேரம்: ${timeText(p)}${p.food?' — '+p.food:''} — அடுத்த refill: ${p.nextDate||'பதிவு இல்லை'}`).join('\n')}\nதேவையான மருந்துகளைப் பற்றி எங்களைத் தொடர்புகொள்ளவும். மருத்துவர் பரிந்துரைப்படி மருந்துகளைப் பயன்படுத்தவும்.`;
+  let n=digits(c.mobile);if(n.length===10)n='91'+n;
+  let url=`https://wa.me/${n}?text=${encodeURIComponent(msg)}`;
+  return `<div class="listitem prescription"><div class="listhead"><div><h3 style="margin:0 0 4px">${esc(c.name)}</h3><p style="margin:0">${esc(c.mobile)}</p></div><span class="badge ${g.due.length?'due':''}">${esc(status)}</span></div><div class="prescription-body">${meds}</div><div class="rowbtns"><a class="btn" href="${url}" target="_blank" rel="noopener">WhatsApp – அனைத்து மருந்துகளுக்கும் ஒரே Reminder</a></div></div>`;
+}).join(''):'<div class="empty">Reminder இல்லை.</div>';
+}
+function markRefilled(id){let p=db.plans.find(x=>x.id===id);if(!p)return;if(!confirm('அடுத்த refill reminder-ஐ '+(p.repeatDays||30)+' நாட்கள் முன்னேற்றவா?'))return;let old=p.nextDate||today();p.nextDate=plusDays(old<today()?today():old,p.repeatDays||30);p.updatedAt=new Date().toISOString();db.logs.push({id:uid(),planId:id,action:'refilled-next-date',at:new Date().toISOString(),nextDate:p.nextDate});save()}
+function renderHome(){let due=db.plans.filter(p=>(p.nextDate||'')<=today());$('countCustomers').textContent=db.customers.length;$('countPlans').textContent=db.plans.length;$('countDue').textContent=due.length;$('homeDue').innerHTML=due.length?due.sort((a,b)=>(a.nextDate||'').localeCompare(b.nextDate||'')).map(p=>{let c=getPlanCustomer(p);return `<div class="listitem"><b>${esc(c.name)} — ${esc(p.medicine)}</b><p>${esc(c.mobile)} • ${esc(p.nextDate)}</p><a class="btn" href="${waLink(p)}" target="_blank" rel="noopener">WhatsApp Reminder</a></div>`}).join(''):'<div class="empty">இன்று due reminder இல்லை.</div>'}
+function renderAll(){renderCustomers();fillCustomerSelect();renderPlans();renderReminders();renderHome()}
+function importAdminBackup(){let f=$('backupFile').files[0];if(!f){$('importStatus').textContent='முதலில் JSON Backup தேர்வு செய்யவும்.';return}let r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result),col=d.collections||d;if(!col||typeof col!=='object')throw Error('Backup format புரியவில்லை');let rem=Array.isArray(col.reminders)?col.reminders:[];if(!rem.length){$('importStatus').textContent='இந்த backup-ல் Customer Reminder பதிவுகள் இல்லை. Bills அல்லது முழு Customer பட்டியலிலிருந்து எந்தத் தகவலும் import செய்யப்படவில்லை.';return}let addedC=0,updatedC=0,addedP=0,skipped=0;rem.forEach(x=>{let mob=String(x.mobile||x.customerMobile||'').trim();let name=String(x.customerName||x.name||'').trim();let med=String(x.medicine||x.medicineName||'').trim();if(!mob||!name||!med){skipped++;return}let c=db.customers.find(y=>digits(y.mobile)===digits(mob));if(!c){c={id:uid(),name,mobile:mob,notes:'Imported from SKMedKART Customer Reminder',updatedAt:new Date().toISOString()};db.customers.push(c);addedC++}else{c.name=name||c.name;updatedC++}let date=String(x.nextDate||x.reminderDate||today()).slice(0,10);let repeat=Math.max(1,Number(x.repeatDays)||30);let exists=db.plans.some(p=>p.customerId===c.id&&p.medicine===med&&p.nextDate===date);if(exists)return;db.plans.push({id:uid(),customerId:c.id,customerName:c.name,mobile:c.mobile,medicine:med,dose:'',food:'',times:{morning:false,afternoon:false,evening:false,night:false},startDate:typeof x.createdAt==='string'?x.createdAt.slice(0,10):today(),repeatDays:repeat,nextDate:date,quantity:'',notes:String(x.note||''),updatedAt:new Date().toISOString(),source:'admin-reminder',reminderMode:String(x.mode||''),reminderStatus:String(x.status||'Pending')});addedP++});save();$('importStatus').textContent=`Customer Reminder பதிவுகள் மட்டும் import செய்யப்பட்டன. புதிய reminder customers: ${addedC}; ஏற்கெனவே இருந்த customer update: ${updatedC}; புதிய medicine reminders: ${addedP}; முழுமையற்ற பதிவுகள் தவிர்க்கப்பட்டன: ${skipped}. Bills மற்றும் பொதுவான Customer பட்டியல் import செய்யப்படவில்லை. Dose / உணவு நேரம் reminder backup-ல் இல்லாவிட்டால் prescription பார்த்து தனியாகப் பதிவு செய்யவும்.`}catch(e){$('importStatus').textContent='Import தோல்வி: '+e.message}};r.readAsText(f)}
+function exportData(){let blob=new Blob([JSON.stringify({app:'SKMedCARE Companion',version:1,exportedAt:new Date().toISOString(),...db},null,2)],{type:'application/json'});downloadBlob(blob,'SKMedCARE_Backup_'+today()+'.json')}
+function restoreData(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);if(!Array.isArray(d.customers)||!Array.isArray(d.plans))throw Error('Invalid companion backup');if(!confirm('தற்போதைய companion data-வை restore file-இன் data-ஆல் மாற்றவா? முதலில் Export backup எடுக்கவும்.'))return;db={customers:d.customers,plans:d.plans,logs:Array.isArray(d.logs)?d.logs:[]};save();alert('Restore வெற்றிகரமாக முடிந்தது.')}catch(err){alert('Restore முடியவில்லை: '+err.message)}};r.readAsText(f);e.target.value=''}
+function downloadBlob(blob,name){let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
+function clearAllData(){if(!confirm('இந்த Companion App-இல் உள்ள அனைத்து customer, medicine, reminder data-யும் அழிக்கப்படும். Admin app data அழியாது. தொடரவா?'))return;db={customers:[],plans:[],logs:[]};save()}
+async function requestNotificationPermission(){if(!('Notification'in window)){alert('இந்த browser-ல் notifications கிடைக்கவில்லை.');return}let p=await Notification.requestPermission();alert(p==='granted'?'Browser notification permission கிடைத்தது. குறிப்பு: app திறந்திருக்கும் போது மட்டுமே due reminder காட்ட முடியும்; முழு background schedule-க்கு hosting/push setup தேவை.':'Notification permission வழங்கப்படவில்லை.')}
+function checkDueNotice(){let key='skmedcare_last_notice_'+today();if(localStorage.getItem(key))return;let due=db.plans.filter(p=>(p.nextDate||'')<=today());if(due.length&&'Notification'in window&&Notification.permission==='granted'){new Notification('SKMedCARE: Refill reminders',{body:due.length+' customer medicine reminder(s) due today.'});localStorage.setItem(key,'1')}}
+load();renderAll();syncNativeNotifications();setTimeout(checkDueNotice,1200);
+if('serviceWorker'in navigator && location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
+</script>
+</body></html>

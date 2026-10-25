@@ -1,0 +1,9 @@
+plugins { id 'com.android.application' }
+android {
+ namespace 'com.srikrishnamedicals.skmedcare'
+ compileSdk 35
+ defaultConfig { applicationId 'com.srikrishnamedicals.skmedcare'; minSdk 23; targetSdk 35; versionCode 2; versionName '1.1.0' }
+}
+dependencies {
+ implementation 'androidx.core:core:1.15.0'
+}

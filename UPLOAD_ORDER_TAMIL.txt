@@ -1,0 +1,30 @@
+SKMedCARE — GitHub upload order (முக்கியம்)
+
+இந்த ZIP-ஐ Extract செய்ததும் உள்ள கோப்புகளை GitHub Repository-ன் ROOT-க்கு upload செய்யவும்.
+கோப்புகளை ஒரே folder-ல் சேர்த்து upload செய்ய வேண்டாம். Folder structure அப்படியே இருக்க வேண்டும்.
+
+Repository root-ல்:
+1. settings.gradle
+2. build.gradle                  (ROOT build.gradle — app/build.gradle-க்கு வேறானது)
+3. gradle.properties
+4. README_TAMIL.txt
+5. UPLOAD_ORDER_TAMIL.txt
+6. app/                          (முழு folder structure உடன்)
+7. .github/workflows/build-apk.yml
+
+app/ உள்ளே:
+- app/build.gradle
+- app/src/main/AndroidManifest.xml
+- app/src/main/assets/index.html
+- app/src/main/java/com/srikrishnamedicals/skmedcare/MainActivity.java
+- app/src/main/java/com/srikrishnamedicals/skmedcare/ReminderReceiver.java
+- app/src/main/java/com/srikrishnamedicals/skmedcare/BootReceiver.java
+
+GitHub upload page-ல் files மட்டும் தேர்வு செய்தால், சில mobile browser-கள் nested folders-ஐ சரியாக preserve செய்யாமல் இருக்கலாம்.
+அதனால் GitHub-க்கு ZIP-ஐ மட்டும் upload செய்வது போதாது; ZIP-ஐ extract செய்த பின் முழு folders/path-களை preserve செய்து upload செய்ய வேண்டும்.
+Upload list-ல் இரண்டு build.gradle பெயர்கள் வருவது இயல்பானது, ஆனால் அவை வேறு path-களில் இருக்க வேண்டும்:
+- build.gradle
+- app/build.gradle
+
+Build:
+GitHub → Actions → Build SKMedCARE Auto Reminder APK → Run workflow.
