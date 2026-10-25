@@ -9,10 +9,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.webkit.JavascriptInterface;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -23,18 +25,44 @@ import java.util.Calendar;
 
 public class MainActivity extends Activity {
   WebView web;
+  private ValueCallback<Uri[]> fileChooserCallback;
+  private static final int FILE_CHOOSER_REQUEST = 7314;
   static final String PREF="skmedcare_alarms";
+
   @Override public void onCreate(Bundle b){
     super.onCreate(b);
     createChannel();
     if(Build.VERSION.SDK_INT>=33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
       requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},100);
     web=new WebView(this);
-    WebSettings s=web.getSettings(); s.setJavaScriptEnabled(true); s.setDomStorageEnabled(true); s.setAllowFileAccess(true);
-    web.setWebChromeClient(new WebChromeClient()); web.setWebViewClient(new WebViewClient());
+    WebSettings s=web.getSettings();
+    s.setJavaScriptEnabled(true);
+    s.setDomStorageEnabled(true);
+    s.setAllowFileAccess(true);
+    web.setWebChromeClient(new WebChromeClient(){
+      @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params){
+        if(fileChooserCallback!=null){
+          fileChooserCallback.onReceiveValue(null);
+          fileChooserCallback=null;
+        }
+        fileChooserCallback=callback;
+        try{
+          Intent intent=params.createIntent();
+          startActivityForResult(intent,FILE_CHOOSER_REQUEST);
+          return true;
+        }catch(Exception ex){
+          fileChooserCallback=null;
+          callback.onReceiveValue(null);
+          return false;
+        }
+      }
+    });
+    web.setWebViewClient(new WebViewClient());
     web.addJavascriptInterface(new ReminderBridge(this),"AndroidReminderBridge");
-    setContentView(web); web.loadUrl("file:///android_asset/index.html");
+    setContentView(web);
+    web.loadUrl("file:///android_asset/index.html");
   }
+
   void createChannel(){
     if(Build.VERSION.SDK_INT>=26){
       NotificationChannel ch=new NotificationChannel("skmedcare_reminders","SKMedCARE Reminders",NotificationManager.IMPORTANCE_HIGH);
@@ -42,6 +70,7 @@ public class MainActivity extends Activity {
       ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(ch);
     }
   }
+
   public static void scheduleAll(Context c,String json){
     try{
       JSONArray arr=new JSONArray(json);
@@ -49,7 +78,8 @@ public class MainActivity extends Activity {
       sp.edit().putString("payload",json).apply();
       AlarmManager am=(AlarmManager)c.getSystemService(ALARM_SERVICE);
       for(int i=0;i<arr.length();i++){
-        JSONObject p=arr.getJSONObject(i); String id=p.optString("id","p"+i);
+        JSONObject p=arr.getJSONObject(i);
+        String id=p.optString("id","p"+i);
         JSONObject times=p.optJSONObject("times"), nt=p.optJSONObject("notifyTimes");
         if(times!=null && nt!=null){
           String[][] slots={{"morning","morning"},{"afternoon","afternoon"},{"evening","evening"},{"night","night"}};
@@ -61,18 +91,64 @@ public class MainActivity extends Activity {
       }
     }catch(Exception ignored){}
   }
+
   static void setDaily(Context c,AlarmManager am,String key,String title,String body,String hhmm){
-    try{String[] t=hhmm.split(":"); Calendar cal=Calendar.getInstance(); cal.set(Calendar.HOUR_OF_DAY,Integer.parseInt(t[0]));cal.set(Calendar.MINUTE,Integer.parseInt(t[1]));cal.set(Calendar.SECOND,0);cal.set(Calendar.MILLISECOND,0);if(cal.getTimeInMillis()<=System.currentTimeMillis())cal.add(Calendar.DAY_OF_YEAR,1);ReminderReceiver.schedule(c,key,title,body,cal.getTimeInMillis(),true);}catch(Exception ignored){}
+    try{
+      String[] t=hhmm.split(":");
+      Calendar cal=Calendar.getInstance();
+      cal.set(Calendar.HOUR_OF_DAY,Integer.parseInt(t[0]));
+      cal.set(Calendar.MINUTE,Integer.parseInt(t[1]));
+      cal.set(Calendar.SECOND,0);
+      cal.set(Calendar.MILLISECOND,0);
+      if(cal.getTimeInMillis()<=System.currentTimeMillis())cal.add(Calendar.DAY_OF_YEAR,1);
+      ReminderReceiver.schedule(c,key,title,body,cal.getTimeInMillis(),true);
+    }catch(Exception ignored){}
   }
+
   static void setDate(Context c,AlarmManager am,String key,String title,String body,String date,String hhmm){
-    try{String[] d=date.split("-"),t=hhmm.split(":");Calendar cal=Calendar.getInstance();cal.set(Integer.parseInt(d[0]),Integer.parseInt(d[1])-1,Integer.parseInt(d[2]),Integer.parseInt(t[0]),Integer.parseInt(t[1]),0);cal.set(Calendar.MILLISECOND,0);if(cal.getTimeInMillis()>System.currentTimeMillis())ReminderReceiver.schedule(c,key,title,body,cal.getTimeInMillis(),false);}catch(Exception ignored){}
+    try{
+      String[] d=date.split("-"),t=hhmm.split(":");
+      Calendar cal=Calendar.getInstance();
+      cal.set(Integer.parseInt(d[0]),Integer.parseInt(d[1])-1,Integer.parseInt(d[2]),Integer.parseInt(t[0]),Integer.parseInt(t[1]),0);
+      cal.set(Calendar.MILLISECOND,0);
+      if(cal.getTimeInMillis()>System.currentTimeMillis())ReminderReceiver.schedule(c,key,title,body,cal.getTimeInMillis(),false);
+    }catch(Exception ignored){}
   }
+
   public static class ReminderBridge {
-    Context c; ReminderBridge(Context x){c=x.getApplicationContext();}
+    Context c;
+    ReminderBridge(Context x){c=x.getApplicationContext();}
     @JavascriptInterface public void syncReminders(String json){scheduleAll(c,json);}
     @JavascriptInterface public void openExactAlarmSettings(){
-      if(Build.VERSION.SDK_INT>=31){Intent i=new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);c.startActivity(i);}
+      if(Build.VERSION.SDK_INT>=31){
+        Intent i=new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        c.startActivity(i);
+      }
     }
   }
-  @Override public void onBackPressed(){if(web!=null&&web.canGoBack())web.goBack();else super.onBackPressed();}
-}
+
+  @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
+    super.onActivityResult(requestCode,resultCode,data);
+    if(requestCode==FILE_CHOOSER_REQUEST){
+      if(fileChooserCallback==null)return;
+      Uri[] results=null;
+      if(resultCode==RESULT_OK && data!=null){
+        if(data.getClipData()!=null){
+          int count=data.getClipData().getItemCount();
+          results=new Uri[count];
+          for(int i=0;i<count;i++)results[i]=data.getClipData().getItemAt(i).getUri();
+        }else if(data.getData()!=null){
+          results=new Uri[]{data.getData()};
+        }
+      }
+      fileChooserCallback.onReceiveValue(results);
+      fileChooserCallback=null;
+    }
+  }
+
+  @Override public void onBackPressed(){
+    if(web!=null&&web.canGoBack())web.goBack();
+    else super.onBackPressed();
+  }
+        }
