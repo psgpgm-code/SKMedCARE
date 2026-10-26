@@ -270,7 +270,6 @@ function setDb(d){
  localStorage.setItem(KEY,JSON.stringify(db));
  if(typeof window.renderAll==='function')window.renderAll();
  if(typeof window.syncNativeNotifications==='function')window.syncNativeNotifications();
-  }
 }
 function mergeById(local,remote){
  const m=new Map();
