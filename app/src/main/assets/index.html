@@ -314,14 +314,29 @@ function scheduleSave(){
   if(busy){scheduleSave();return}
   busy=true;
   try{
+   const ref=firebase.database().ref('users/'+user.uid+'/companion');
+   const snap=await ref.once('value');
+   const remote=snap.val()||{};
    const d=getDb();
-   await firebase.database().ref('users/'+user.uid+'/companion').set({
-    customers:d.customers,plans:d.plans,logs:d.logs,
-    schemaVersion:1,syncedAt:new Date().toISOString()
+   const merged={
+    customers:mergeById(d.customers,remote.customers),
+    plans:mergeById(d.plans,remote.plans),
+    logs:mergeById(d.logs,remote.logs)
+   };
+   setDb(merged);
+   await ref.set({
+    customers:merged.customers,
+    plans:merged.plans,
+    logs:merged.logs,
+    schemaVersion:1,
+    syncedAt:new Date().toISOString()
    });
    status('Cloud-ல் சேமிக்கப்பட்டது');
-  }catch(e){status('Cloud save தோல்வி: '+errorText(e))}
-  finally{busy=false}
+  }catch(e){
+   status('Cloud save தோல்வி: '+errorText(e))
+  }finally{
+   busy=false
+  }
  },1200);
 }
 async function login(){
