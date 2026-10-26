@@ -262,10 +262,15 @@ function getDb(){
  }; } catch(_){ return {customers:[],plans:[],logs:[]}; }
 }
 function setDb(d){
- localStorage.setItem(KEY,JSON.stringify(d));
- // Preserve existing app rendering and native reminder notification behavior.
+ db={
+  customers:Array.isArray(d.customers)?d.customers:[],
+  plans:Array.isArray(d.plans)?d.plans:[],
+  logs:Array.isArray(d.logs)?d.logs:[]
+ };
+ localStorage.setItem(KEY,JSON.stringify(db));
  if(typeof window.renderAll==='function')window.renderAll();
  if(typeof window.syncNativeNotifications==='function')window.syncNativeNotifications();
+  }
 }
 function mergeById(local,remote){
  const m=new Map();
