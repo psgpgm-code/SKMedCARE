@@ -273,8 +273,17 @@ function setDb(d){
 }
 function mergeById(local,remote){
  const m=new Map();
- (Array.isArray(remote)?remote:[]).forEach(x=>{if(x&&x.id)m.set(String(x.id),x)});
- (Array.isArray(local)?local:[]).forEach(x=>{if(x&&x.id)m.set(String(x.id),{...(m.get(String(x.id))||{}),...x})});
+ (Array.isArray(remote)?remote:[]).forEach(x=>{
+  if(x&&x.id)m.set(String(x.id),x);
+ });
+ (Array.isArray(local)?local:[]).forEach(x=>{
+  if(!x||!x.id)return;
+  const k=String(x.id),r=m.get(k);
+  if(!r){m.set(k,x);return}
+  const lt=Date.parse(x.updatedAt||x.at||0)||0;
+  const rt=Date.parse(r.updatedAt||r.at||0)||0;
+  if(lt>=rt)m.set(k,{...r,...x});
+ });
  return Array.from(m.values());
 }
 async function sync(){
