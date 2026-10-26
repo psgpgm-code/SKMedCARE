@@ -57,7 +57,55 @@ public class MainActivity extends Activity {
         }
       }
     });
-    web.setWebViewClient(new WebViewClient());
+    web.setWebViewClient(new WebViewClient() {
+  @Override
+  public boolean shouldOverrideUrlLoading(WebView view, String url) {
+    if (url == null) return false;
+
+    if (url.startsWith("whatsapp://")) {
+      try {
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+        startActivity(intent);
+      } catch (Exception e) {
+        try {
+          String fallback = url.replace(
+              "whatsapp://send/", "https://wa.me/"
+          ).replace("whatsapp://send", "https://wa.me/");
+          Intent intent = new Intent(
+              Intent.ACTION_VIEW, Uri.parse(fallback)
+          );
+          startActivity(intent);
+        } catch (Exception ignored) {
+          view.loadUrl("https://wa.me/");
+        }
+      }
+      return true;
+    }
+
+    if (url.startsWith("https://wa.me/") ||
+        url.startsWith("https://api.whatsapp.com/")) {
+      try {
+        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+      } catch (Exception e) {
+        view.loadUrl(url);
+      }
+      return true;
+    }
+
+    return false;
+  }
+
+  @Override
+  public boolean shouldOverrideUrlLoading(
+      WebView view, android.webkit.WebResourceRequest request) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+      return shouldOverrideUrlLoading(
+          view, request.getUrl().toString()
+      );
+    }
+    return false;
+  }
+});
     web.addJavascriptInterface(new ReminderBridge(this),"AndroidReminderBridge");
     setContentView(web);
     web.loadUrl("file:///android_asset/index.html");
