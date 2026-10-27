@@ -132,7 +132,7 @@ function getPlanCustomer(p){return customerById(p.customerId)||{name:p.customerN
 function resetCustomerForm(){$('customerForm').reset();$('customerId').value=''}
 $('customerForm').addEventListener('submit',e=>{e.preventDefault();let id=$('customerId').value;let c={id:id||uid(),name:$('cName').value.trim(),mobile:$('cMobile').value.trim(),notes:$('cNotes').value.trim(),updatedAt:new Date().toISOString()};if(!c.name||!c.mobile)return;if(db.customers.some(x=>x.id!==id&&digits(x.mobile)===digits(c.mobile))){if(!confirm('இந்த மொபைல் எண் ஏற்கெனவே உள்ளது. இருந்தாலும் சேமிக்கவா?'))return}if(id)db.customers=db.customers.map(x=>x.id===id?c:x);else db.customers.push(c);resetCustomerForm();save()});
 function editCustomer(id){let c=customerById(id);if(!c)return;$('customerId').value=c.id;$('cName').value=c.name;$('cMobile').value=c.mobile;$('cNotes').value=c.notes||'';showTab('customers');$('cName').focus()}
-function deleteCustomer(id){if(!confirm('இந்த customer-ஐ நீக்கவா? அவருடைய medicine plans-யும் நீக்கப்படும்.'))return;db.customers=db.customers.filter(c=>c.id!==id);db.plans=db.plans.filter(p=>p.customerId!==id);save()}
+function deleteCustomer(id){if(!confirm('இந்த customer-ஐ நீக்கவா? அவருடைய medicine plans-யும் நீக்கப்படும்.'))return;skmRecordDeleted('customers',[id]);skmRecordDeleted('plans',db.plans.filter(p=>p.customerId===id).map(p=>p.id));db.customers=db.customers.filter(c=>c.id!==id);db.plans=db.plans.filter(p=>p.customerId!==id);save()}
 function renderCustomers(){let q=($('customerSearch')?.value||'').toLowerCase();let list=db.customers.filter(c=>(c.name+' '+c.mobile).toLowerCase().includes(q));$('customerList').innerHTML=list.length?list.map(c=>`<div class="listitem"><div class="listhead"><div><b>${esc(c.name)}</b><p>${esc(c.mobile)}</p></div><span class="badge">${db.plans.filter(p=>p.customerId===c.id).length} plans</span></div>${c.notes?`<p>${esc(c.notes)}</p>`:''}<div class="rowbtns"><button class="secondary" onclick="editCustomer('${c.id}')">Edit</button><button class="secondary" onclick="newPlanFor('${c.id}')">+ Medicine</button><a class="btn secondary" href="tel:${esc(digits(c.mobile))}">Call</a><button class="danger" onclick="deleteCustomer('${c.id}')">Delete</button></div></div>`).join(''):'<div class="empty">Customer இல்லை. முதலில் பதிவு செய்யவும் அல்லது backup import செய்யவும்.</div>'}
 function fillCustomerSelect(selected){let s=$('pCustomer');if(!s)return;s.innerHTML='<option value="">Customer தேர்வு செய்யவும்</option>'+db.customers.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(c=>`<option value="${esc(c.id)}">${esc(c.name)} — ${esc(c.mobile)}</option>`).join('');if(selected)s.value=selected}
 function resetPlanForm(){$('planForm').reset();$('planId').value='';$('pStart').value=today();$('pRepeat').value=30;$('pNext').value=plusDays(today(),30);fillCustomerSelect()}
@@ -153,7 +153,8 @@ function addAnotherMedicine(){
 }
 $('planForm').addEventListener('submit',e=>{e.preventDefault();let id=$('planId').value,c=customerById($('pCustomer').value);if(!c){alert('முதலில் Customer தேர்வு செய்யவும்.');return}let p={id:id||uid(),customerId:c.id,customerName:c.name,mobile:c.mobile,medicine:$('pMedicine').value.trim(),dose:$('pDose').value.trim(),food:$('pFood').value,times:{morning:$('tMorning').checked,afternoon:$('tAfternoon').checked,evening:$('tEvening').checked,night:$('tNight').checked},notifyTimes:{morning:$('tmMorning').value||'08:00',afternoon:$('tmAfternoon').value||'13:00',evening:$('tmEvening').value||'18:00',night:$('tmNight').value||'21:00',refill:$('pRefillTime').value||'09:00'},startDate:$('pStart').value||today(),repeatDays:Math.max(1,Number($('pRepeat').value)||30),nextDate:$('pNext').value||plusDays(today(),30),quantity:$('pQty').value.trim(),location:$('pLocation').value.trim(),notes:$('pNotes').value.trim(),updatedAt:new Date().toISOString()};if(id)db.plans=db.plans.map(x=>x.id===id?p:x);else db.plans.push(p);$('planForm').reset();$('planId').value='';$('pStart').value=today();$('pRepeat').value=30;$('pNext').value=plusDays(today(),30);save()});
 function editPlan(id){let p=db.plans.find(x=>x.id===id);if(!p)return;fillCustomerSelect(p.customerId);$('planId').value=p.id;$('pCustomer').value=p.customerId;$('pMedicine').value=p.medicine;$('pDose').value=p.dose||'';$('pFood').value=p.food||'';$('tMorning').checked=!!p.times?.morning;$('tAfternoon').checked=!!p.times?.afternoon;$('tEvening').checked=!!p.times?.evening;$('tNight').checked=!!p.times?.night;$('tmMorning').value=p.notifyTimes?.morning||'08:00';$('tmAfternoon').value=p.notifyTimes?.afternoon||'13:00';$('tmEvening').value=p.notifyTimes?.evening||'18:00';$('tmNight').value=p.notifyTimes?.night||'21:00';$('pRefillTime').value=p.notifyTimes?.refill||'09:00';$('pStart').value=p.startDate||today();$('pRepeat').value=p.repeatDays||30;$('pNext').value=p.nextDate||plusDays(today(),30);$('pQty').value=p.quantity||'';$('pLocation').value=p.location||'';$('pNotes').value=p.notes||'';showTab('medicine');$('pMedicine').focus()}
-function deletePlan(id){if(confirm('இந்த medicine plan-ஐ நீக்கவா?')){db.plans=db.plans.filter(p=>p.id!==id);save()}}
+function skmRecordDeleted(kind,ids){const key='skmedcare_deleted_v1';let d;try{d=JSON.parse(localStorage.getItem(key)||'{}')}catch(_){d={}};d.customers=d.customers||{};d.plans=d.plans||{};const stamp=new Date().toISOString();ids.forEach(id=>{if(id)d[kind][String(id)]=stamp});localStorage.setItem(key,JSON.stringify(d))}
+function deletePlan(id){if(confirm('இந்த medicine plan-ஐ நீக்கவா?')){skmRecordDeleted('plans',[id]);db.plans=db.plans.filter(p=>p.id!==id);save()}}
 function timeText(p){let a=[];if(p.times?.morning)a.push('காலை');if(p.times?.afternoon)a.push('மதியம்');if(p.times?.evening)a.push('மாலை');if(p.times?.night)a.push('இரவு');return a.join(', ')||'நேரம் பதிவு செய்யவில்லை'}
 function renderPlans(){
 let q=($('planSearch')?.value||'').toLowerCase();
@@ -239,6 +240,12 @@ const CONFIG = {
   appId: "1:386450384115:android:654e74e6ae2f3122be0386"
 };
 const KEY='skmedcare_companion_v1';
+// SKM_DELETE_SYNC_FIX_V1: cloud deletion tombstones, persisted on every device
+const DELKEY='skmedcare_deleted_v1';
+function deleted(){try{const x=JSON.parse(localStorage.getItem(DELKEY)||'{}');return {customers:x.customers||{},plans:x.plans||{}}}catch(_){return {customers:{},plans:{}}}}
+function storeDeleted(d){localStorage.setItem(DELKEY,JSON.stringify(d))}
+function unionDeleted(a,b){const out={customers:{},plans:{}};for(const k of ['customers','plans']){for(const src of [a,b])for(const [id,stamp] of Object.entries((src&&src[k])||{})){if(!out[k][id]||String(stamp)>String(out[k][id]))out[k][id]=stamp}}return out}
+function withoutDeleted(rows,kind,d){return (rows||[]).filter(x=>x&&!((d[kind]||{})[String(x.id)]))}
 const $=id=>document.getElementById(id);
 let ready=false, user=null, busy=false, timer=null;
 function status(s){const e=$('skmc-cloud-status');if(e)e.textContent=s}
@@ -271,7 +278,7 @@ function setDb(d){
  if(typeof window.renderAll==='function')window.renderAll();
  if(typeof window.syncNativeNotifications==='function')window.syncNativeNotifications();
 }
-function mergeById(local,remote){
+function mergeById(local,remote,kind,removed){
  const m=new Map();
  (Array.isArray(remote)?remote:[]).forEach(x=>{
   if(x&&x.id)m.set(String(x.id),x);
@@ -284,7 +291,7 @@ function mergeById(local,remote){
   const rt=Date.parse(r.updatedAt||r.at||0)||0;
   if(lt>=rt)m.set(k,{...r,...x});
  });
- return Array.from(m.values());
+ return kind?withoutDeleted(Array.from(m.values()),kind,removed||deleted()):Array.from(m.values());
 }
 async function sync(){
  if(!ready||!user){status('Cloud sync செய்ய முதலில் Login செய்யவும்.');return}
@@ -296,12 +303,13 @@ async function sync(){
   const remote=snap.val();
   let d=getDb();
   if(remote && typeof remote==='object'){
-   d={customers:mergeById(d.customers,remote.customers),
-      plans:mergeById(d.plans,remote.plans),
+   const removed=unionDeleted(deleted(),remote.deleted);storeDeleted(removed);
+   d={customers:mergeById(d.customers,remote.customers,'customers',removed),
+      plans:mergeById(d.plans,remote.plans,'plans',removed),
       logs:mergeById(d.logs,remote.logs)};
    setDb(d);
   }
-  await ref.set({customers:d.customers,plans:d.plans,logs:d.logs,
+  await ref.set({customers:d.customers,plans:d.plans,logs:d.logs,deleted:deleted(),
     schemaVersion:1,syncedAt:new Date().toISOString()});
   status('Cloud sync வெற்றி • '+d.customers.length+' Customers, '+d.plans.length+' Medicine Plans');
  }catch(e){status('Sync தோல்வி: '+errorText(e))}
@@ -318,9 +326,10 @@ function scheduleSave(){
    const snap=await ref.once('value');
    const remote=snap.val()||{};
    const d=getDb();
+   const removed=unionDeleted(deleted(),remote.deleted);storeDeleted(removed);
    const merged={
-    customers:mergeById(d.customers,remote.customers),
-    plans:mergeById(d.plans,remote.plans),
+    customers:mergeById(d.customers,remote.customers,'customers',removed),
+    plans:mergeById(d.plans,remote.plans,'plans',removed),
     logs:mergeById(d.logs,remote.logs)
    };
    setDb(merged);
@@ -328,6 +337,7 @@ function scheduleSave(){
     customers:merged.customers,
     plans:merged.plans,
     logs:merged.logs,
+    deleted:removed,
     schemaVersion:1,
     syncedAt:new Date().toISOString()
    });
